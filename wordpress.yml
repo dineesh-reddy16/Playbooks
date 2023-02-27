@@ -1,0 +1,80 @@
+---
+- hosts: all
+	  vars_prompt:
+	          - name: "db_name"
+	            prompt: "enter database name"
+	            private: no
+	          - name: "user"
+	            prompt: "enter the master username"
+	            private: no 
+	          - name: "pass_wd"
+	            prompt: "enter the password for your database master"
+	            private: yes
+	  vars_files:
+	          - "secret.yml"
+	  tasks:
+	          - name: "provisioning the instances "
+	            ec2:
+	                    zone: "ap-south-1a"
+	                    assign_public_ip: "yes"
+	                    ec2_access_key: "<access key>"
+	                    ec2_secret_key: "<secrete key>"
+	                    count: 1
+	                    image: "ami-04b1ddd35fd71475a"
+	                    instance_tags:
+	                            Name: "mainos"
+	                    instance_type: "t2.micro"
+	                    key_name: "slave_key"
+	                    region: "ap-south-1"
+	                    state: "present"
+	                    wait: yes
+	                    vpc_subnet_id: "subnet-678b820f"
+	            register: X
+	          - name: "debugging the output"
+	            debug:
+	                    var: X['instances'][0]['public_ip']
+	
+
+	          - name: "launching a mysql database"
+	            community.aws.rds:
+	                    aws_access_key: "<access key>"
+	                    aws_secret_key: "<secrete key>"
+	                    command: create
+	                    db_engine: "MySQL"
+	                    db_name: "<name of your db>"
+	                    engine_version: "<version>"
+	                    instance_name: "dbos"
+	                    instance_type: "db.t2.micro"
+	                    password: "<password>"
+	                    publicly_accessible: yes
+	                    size: "20"
+	                    region: "ap-south-1"
+	                    username: "<user name>"
+	          - meta: refresh_inventory
+	          - pause:
+	                  seconds: 30
+	- hosts: "tag_Name_mainos"
+	  tasks:
+	          - name: "installing httpd"
+	            package:
+	                    name: "httpd"
+	                    state: present
+	          - name: "installing prerequisites for wordpress"
+	            yum:
+	                    name:
+	                            - php
+	                            - tar
+	                            - mysql
+	          - name: "downloading the wordpress tar file"
+	            ansible.builtin.unarchive:
+	                    remote_src: yes
+	                    src: "https://wordpress.org/latest.tar.gz"
+	                    dest: "/var/www/html/"
+	          - shell: "yum install php7.3 -y"
+	          - shell: "chown -R apache:apache /var/www/html/wordpress"
+	          - name: "starting the services of the httpd"
+	            service:
+	                    name: "httpd"
+	                    state: started
+	           
+                        enabled: yes
